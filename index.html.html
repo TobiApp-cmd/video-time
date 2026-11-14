@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>動画制作 時間記録</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif; background:#f4f5f8; color:#222; }
+  header { background:#2d3a5a; color:#fff; padding:14px 20px; font-size:18px; font-weight:bold; }
+  main { max-width:960px; margin:0 auto; padding:16px; display:grid; gap:16px; }
+  section { background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  h2 { font-size:15px; margin:0 0 12px; color:#2d3a5a; }
+  label { font-size:12px; color:#666; display:block; margin-bottom:4px; }
+  input, select { width:100%; padding:9px; border:1px solid #ccd; border-radius:8px; font-size:14px; }
+  .row { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; }
+  .btns { display:grid; grid-template-columns: repeat(auto-fill, minmax(130px,1fr)); gap:10px; margin-top:12px; }
+  button { border:none; border-radius:10px; padding:12px; font-size:14px; cursor:pointer; background:#e8ecf5; color:#2d3a5a; font-weight:bold; }
+  button:hover { filter:brightness(.96); }
+  button.proc.active { background:#e0533d; color:#fff; }
+  button.primary { background:#2d3a5a; color:#fff; }
+  button.danger { background:#fbe3df; color:#b3261e; }
+  button.small { padding:5px 10px; font-size:12px; font-weight:normal; }
+  .timer { text-align:center; padding:12px 0 4px; }
+  .timer .big { font-size:44px; font-variant-numeric: tabular-nums; font-weight:bold; }
+  .timer .sub { color:#666; font-size:13px; }
+  .stopbar { display:flex; justify-content:center; gap:10px; margin-top:8px; }
+  .tabs { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .tabs button.on { background:#2d3a5a; color:#fff; }
+  .bar-row { display:grid; grid-template-columns: 130px 1fr 90px; gap:8px; align-items:center; margin:6px 0; font-size:13px; }
+  .bar-bg { background:#eef0f5; border-radius:6px; height:18px; overflow:hidden; }
+  .bar { background:#4f7cff; height:100%; border-radius:6px; }
+  .bar.over { background:#e0533d; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { padding:7px 6px; border-bottom:1px solid #eee; text-align:left; }
+  th { color:#666; font-weight:normal; font-size:12px; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:20px; background:#eef0f5; font-size:11px; margin-right:4px; }
+  .note { font-size:12px; color:#666; line-height:1.6; }
+  .scroll { max-height:340px; overflow:auto; }
+  @media (max-width:640px){ .row { grid-template-columns:1fr; } .bar-row { grid-template-columns: 90px 1fr 70px; } }
+</style>
+</head>
+<body>
+<header>動画制作 時間記録</header>
+<main>
+
+<section>
+  <h2>1. 今の作業</h2>
+  <div class="row">
+    <div><label>チャンネル</label><input id="channel" list="channels" placeholder="例：チャンネルA"><datalist id="channels"></datalist></div>
+    <div><label>動画名・作品名</label><input id="video" placeholder="例：第12回 ○○解説"></div>
+    <div><label>動画の種類</label>
+      <select id="vtype">
+        <option>解説動画</option><option>実況動画</option><option>Vlog</option><option>ショート</option><option>配信</option><option>サムネイルのみ</option><option>その他制作</option>
+      </select></div>
+    <div><label>項目（任意・自由入力）</label><input id="item" list="items" placeholder="例：原稿の間違い、リサーチ"><datalist id="items"></datalist></div>
+  </div>
+  <div class="timer">
+    <div class="big" id="big">00:00:00</div>
+    <div class="sub" id="sub">待機中。工程ボタンを押すと計測を開始します</div>
+    <div class="stopbar"><button class="danger" id="stopBtn">停止して保存</button></div>
+  </div>
+  <div class="btns" id="procBtns"></div>
+  <div class="note" style="margin-top:8px">※ 別の工程ボタンを押すと、前の工程は自動で保存されて次の計測に切り替わります。ブラウザを閉じても計測は続いています。</div>
+</section>
+
+<section>
+  <h2>2. 手入力で追加（過去分の記録用）</h2>
+  <div class="row">
+    <div><label>工程</label><select id="mProc"></select></div>
+    <div><label>所要時間（分）</label><input id="mMin" type="number" min="1" placeholder="例：45"></div>
+    <div><label>日付</label><input id="mDate" type="date"></div>
+  </div>
+  <div class="btns" style="grid-template-columns:auto"><button class="primary" id="addManual">追加する</button></div>
+</section>
+
+<section>
+  <h2>3. 集計・グラフ</h2>
+  <div class="tabs">
+    <button class="on" data-period="all">全期間</button>
+    <button data-period="week">今週</button>
+    <button data-period="month">今月</button>
+  </div>
+  <div class="tabs">
+    <button class="on" data-group="process">工程別</button>
+    <button data-group="channel">チャンネル別</button>
+    <button data-group="vtype">動画の種類別</button>
+    <button data-group="item">項目別</button>
+    <button data-group="video">動画別</button>
+  </div>
+  <div id="chart"></div>
+  <div class="note" id="totalLine" style="margin-top:10px"></div>
+</section>
+
+<section>
+  <h2>4. 記録一覧</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>日付</th><th>チャンネル</th><th>動画</th><th>種類</th><th>工程</th><th>項目</th><th>分</th><th></th></tr></thead>
+    <tbody id="logBody"></tbody>
+  </table></div>
+  <div class="btns" style="grid-template-columns:repeat(2,1fr)">
+    <button class="primary" id="csvBtn">CSVを書き出す</button>
+    <button id="copyBtn">Notion用にコピー（表形式）</button>
+  </div>
+  <div class="note" style="margin-top:8px">
+    Notionへの連携：書き出したCSVをNotionのデータベースにドラッグして取り込めます。「Notion用にコピー」は、Notionのページにそのまま貼り付けると表になります。自動同期（API連携）にはNotionのインテグレーション設定と中継サーバーが必要です。
+  </div>
+</section>
+
+<section>
+  <h2>5. クラウド同期（Windows・iPhone間で共有）</h2>
+  <div class="row" style="grid-template-columns:2fr 1fr">
+    <div><label>同期用URL（Google Apps Script のウェブアプリURL）</label><input id="syncUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
+    <div><label>合言葉（端末間で同じ文字）</label><input id="syncKey" placeholder="例：my-secret-123"></div>
+  </div>
+  <div class="btns" style="grid-template-columns:repeat(2,1fr)">
+    <button class="primary" id="syncBtn">今すぐ同期</button>
+    <button id="syncSave">設定を保存</button>
+  </div>
+  <div class="note" id="syncMsg" style="margin-top:8px">未同期。設定後に「今すぐ同期」を押すと、記録が両方の端末で統合されます。</div>
+</section>
+
+</main>
+<script>
+const PROCESSES = ["企画","台本","撮影","素材整理","素材作成(画像・映像)","編集","サムネイル","配信準備","配信","告知・投稿","その他"];
+const KEY = "video-time-log-v1";
+const _mem = {};
+function storeGet(k){ try { return localStorage.getItem(k); } catch(e){ return _mem[k] ?? null; } }
+function storeSet(k,v){ _mem[k]=v; try { localStorage.setItem(k,v); } catch(e){} }
+let data = JSON.parse(storeGet(KEY) || '{"logs":[],"running":null}');
+let period = "all", group = "process";
+
+const $ = id => document.getElementById(id);
+const save = () => storeSet(KEY, JSON.stringify(data));
+const pad = n => String(n).padStart(2,"0");
+const fmtHMS = ms => { const s = Math.floor(ms/1000); return `${pad(Math.floor(s/3600))}:${pad(Math.floor(s%3600/60))}:${pad(s%60)}`; };
+const fmtMin = m => { m = Math.round(m); return m >= 60 ? `${Math.floor(m/60)}時間${m%60}分` : `${m}分`; };
+const today = () => new Date().toISOString().slice(0,10);
+
+// 工程ボタン・セレクト初期化
+$("procBtns").innerHTML = PROCESSES.map(p => `<button class="proc" data-p="${p}">${p}</button>`).join("");
+$("mProc").innerHTML = PROCESSES.map(p => `<option>${p}</option>`).join("");
+$("mDate").value = today();
+
+function curFields(){
+  return { channel: $("channel").value.trim() || "（未設定）", video: $("video").value.trim() || "（無題）", vtype: $("vtype").value, item: $("item").value.trim() || "（未設定）" };
+}
+
+function stopRunning(){
+  const r = data.running; if(!r) return;
+  const end = Date.now();
+  const d = new Date(r.start);
+  data.logs.push({ id: Date.now()+Math.random(), date: d.toISOString().slice(0,10), channel: r.channel, video: r.video, vtype: r.vtype, item: r.item, process: r.process, minutes: (end - r.start)/60000, memo: "" });
+  data.running = null; save(); render();
+}
+
+function startProcess(p){
+  if (data.running) stopRunning();
+  data.running = { process: p, start: Date.now(), ...curFields() };
+  save(); render();
+}
+
+$("procBtns").addEventListener("click", e => {
+  const b = e.target.closest("button[data-p]"); if(!b) return;
+  const p = b.dataset.p;
+  if (data.running && data.running.process === p) { stopRunning(); return; } // 同じ工程を再押しで停止
+  startProcess(p);
+});
+$("stopBtn").onclick = () => { stopRunning(); };
+
+$("addManual").onclick = () => {
+  const min = parseFloat($("mMin").value);
+  if (!min || min <= 0) { alert("所要時間（分）を入力してください"); return; }
+  const f = curFields();
+  data.logs.push({ id: Date.now()+Math.random(), date: $("mDate").value || today(), channel: f.channel, video: f.video, vtype: f.vtype, item: f.item, process: $("mProc").value, minutes: min, memo: "手入力" });
+  $("mMin").value = ""; save(); render();
+};
+
+function filtered(){
+  const now = new Date();
+  const t = today();
+  return data.logs.filter(l => {
+    if (period === "all") return true;
+    if (period === "month") return l.date.slice(0,7) === t.slice(0,7);
+    const d = new Date(l.date); const day = (now.getDay()+6)%7; // 月曜起点
+    const monday = new Date(now); monday.setDate(now.getDate()-day); monday.setHours(0,0,0,0);
+    return d >= monday;
+  });
+}
+
+function renderChart(){
+  const logs = filtered();
+  const keyFn = { process: l=>l.process, channel: l=>l.channel||"（未設定）", vtype: l=>l.vtype, item: l=>l.item, video: l=>l.video }[group];
+  const sums = {};
+  logs.forEach(l => { const k = keyFn(l); sums[k] = (sums[k]||0) + l.minutes; });
+  const entries = Object.entries(sums).sort((a,b)=>b[1]-a[1]);
+  const max = entries.length ? entries[0][1] : 1;
+  const total = logs.reduce((s,l)=>s+l.minutes,0);
+  $("chart").innerHTML = entries.length ? entries.map(([k,v],i) =>
+    `<div class="bar-row"><div>${k}</div><div class="bar-bg"><div class="bar ${i===0?'over':''}" style="width:${(v/max*100).toFixed(1)}%"></div></div><div style="text-align:right">${fmtMin(v)}</div></div>`
+  ).join("") : `<div class="note">まだ記録がありません</div>`;
+  const avgBy = {};
+  logs.forEach(l=>{avgBy[l.process]=(avgBy[l.process]||[]); avgBy[l.process].push(l.minutes);});
+  $("totalLine").textContent = `合計 ${fmtMin(total)}（${logs.length}件）。赤いバーが一番時間のかかっている項目です。`;
+}
+
+function renderLogs(){
+  const rows = [...data.logs].sort((a,b)=> b.date.localeCompare(a.date) || b.id - a.id);
+  $("logBody").innerHTML = rows.length ? rows.map(l => `
+    <tr><td>${l.date}</td><td>${escapeHtml(l.channel||"（未設定）")}</td><td>${escapeHtml(l.video)}</td><td><span class="tag">${l.vtype}</span></td><td>${l.process}</td><td>${escapeHtml(l.item)}</td><td>${Math.round(l.minutes)}</td>
+    <td><button class="small danger" data-del="${l.id}">削除</button></td></tr>`).join("")
+    : `<tr><td colspan="8" class="note">まだ記録がありません</td></tr>`;
+  const chs = [...new Set(data.logs.map(l=>l.channel).filter(x=>x && x!=="（未設定）"))];
+  $("channels").innerHTML = chs.map(c=>`<option value="${escapeHtml(c)}">`).join("");
+  // 項目候補（入力補助）
+  const items = [...new Set(data.logs.map(l=>l.item).filter(x=>x && x!=="（未設定）"))];
+  $("items").innerHTML = items.map(i=>`<option value="${escapeHtml(i)}">`).join("");
+}
+
+$("logBody").addEventListener("click", e => {
+  const id = e.target.dataset.del; if(!id) return;
+  if (!confirm("この記録を削除しますか？")) return;
+  data.logs = data.logs.filter(l => String(l.id) !== id); save(); render();
+});
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function renderRunning(){
+  const r = data.running;
+  document.querySelectorAll("button.proc").forEach(b => b.classList.toggle("active", !!r && r.process === b.dataset.p));
+  if (r) {
+    $("big").textContent = fmtHMS(Date.now() - r.start);
+    $("sub").textContent = `計測中：${r.process}　／　${r.channel||"（未設定）"}　／　${r.video}（${r.vtype}）　項目：${r.item}`;
+  } else {
+    $("big").textContent = "00:00:00";
+    $("sub").textContent = "待機中。工程ボタンを押すと計測を開始します";
+  }
+}
+
+function render(){ renderRunning(); renderChart(); renderLogs(); }
+
+// 期間・グループ切り替え
+document.querySelectorAll("[data-period]").forEach(b => b.onclick = () => {
+  period = b.dataset.period;
+  document.querySelectorAll("[data-period]").forEach(x=>x.classList.toggle("on", x===b));
+  renderChart();
+});
+document.querySelectorAll("[data-group]").forEach(b => b.onclick = () => {
+  group = b.dataset.group;
+  document.querySelectorAll("[data-group]").forEach(x=>x.classList.toggle("on", x===b));
+  renderChart();
+});
+
+// 書き出し
+function toRows(){
+  return [["日付","チャンネル","動画名","動画の種類","工程","項目","所要時間(分)","メモ"],
+    ...data.logs.map(l=>[l.date,l.channel||"（未設定）",l.video,l.vtype,l.process,l.item,Math.round(l.minutes*10)/10,l.memo||""])];
+}
+$("csvBtn").onclick = () => {
+  const csv = toRows().map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = `作業記録_${today()}.csv`; a.click();
+};
+$("copyBtn").onclick = async () => {
+  const tsv = toRows().map(r => r.join("\t")).join("\n");
+  try { await navigator.clipboard.writeText(tsv); alert("コピーしました。Notionのページに貼り付けると表になります。"); }
+  catch(e){ alert("コピーできませんでした。CSVの書き出しをご利用ください。"); }
+};
+
+// ===== クラウド同期（Google Apps Script 経由・記録は統合・削除されません）=====
+const SYNC_KEY = "video-time-sync-v1";
+let sync = JSON.parse(storeGet(SYNC_KEY) || '{"url":"","key":"","last":""}');
+$("syncUrl").value = sync.url; $("syncKey").value = sync.key;
+const setSyncMsg = t => { $("syncMsg").textContent = t; };
+
+$("syncSave").onclick = () => {
+  const base = $("syncUrl").value.trim().replace(/\?.*$/, "");
+  sync.key = $("syncKey").value.trim();
+  sync.url = base + "?key=" + encodeURIComponent(sync.key);
+  $("syncUrl").value = sync.url;
+  storeSet(SYNC_KEY, JSON.stringify(sync));
+  setSyncMsg("設定を保存しました。");
+};
+
+async function syncNow(){
+  if (!sync.url || !sync.key) { setSyncMsg("同期用URLと合言葉を入力して「設定を保存」を押してください。"); return; }
+  setSyncMsg("同期中…");
+  try {
+    // 1) クラウドの記録を取得
+    const base = sync.url.replace(/\?.*$/, "");
+    const res = await fetch(base + "?key=" + encodeURIComponent(sync.key));
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const remote = await res.json();
+    // 2) IDで統合（両方の記録を残す）
+    const map = new Map();
+    [...(remote.logs || []), ...data.logs].forEach(l => map.set(String(l.id), l));
+    data.logs = [...map.values()];
+    save();
+    // 3) 統合結果をクラウドへ保存
+    await fetch(sync.url.replace(/\?.*$/, ""), { method: "POST", headers: {"Content-Type": "text/plain;charset=utf-8"},
+      body: JSON.stringify({ key: sync.key, data: { logs: data.logs } }) });
+    sync.last = new Date().toLocaleString("ja-JP");
+    storeSet(SYNC_KEY, JSON.stringify(sync));
+    setSyncMsg(`同期しました（${data.logs.length}件）。最終同期：${sync.last}`);
+    render();
+  } catch(e) {
+    setSyncMsg("同期に失敗しました：" + e.message + "。URLと合言葉、Apps Scriptの公開設定を確認してください。");
+  }
+}
+$("syncBtn").onclick = syncNow;
+
+// 計測中の表示を毎秒更新
+setInterval(renderRunning, 1000);
+render();
+</script>
+</body>
+</html>
