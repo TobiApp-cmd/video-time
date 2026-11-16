@@ -37,6 +37,8 @@
   .tag { display:inline-block; padding:2px 8px; border-radius:20px; background:#eef0f5; font-size:11px; margin-right:4px; }
   .note { font-size:12px; color:#666; line-height:1.6; }
   .scroll { max-height:340px; overflow:auto; }
+  dialog { border:none; border-radius:12px; padding:20px; width:min(520px,92vw); box-shadow:0 8px 30px rgba(0,0,0,.25); }
+  dialog::backdrop { background:rgba(0,0,0,.35); }
   @media (max-width:640px){ .row { grid-template-columns:1fr; } .bar-row { grid-template-columns: 90px 1fr 70px; } }
 </style>
 </head>
@@ -121,6 +123,23 @@
 </section>
 
 </main>
+<dialog id="editDlg">
+  <h2>記録を編集</h2>
+  <div class="row" style="grid-template-columns:1fr 1fr">
+    <div><label>日付</label><input id="eDate" type="date"></div>
+    <div><label>所要時間（分）</label><input id="eMin" type="number" min="0.1" step="0.1"></div>
+    <div><label>チャンネル</label><input id="eChannel" placeholder="（未設定）"></div>
+    <div><label>動画名・作品名</label><input id="eVideo" placeholder="（無題）"></div>
+    <div><label>動画の種類</label><select id="eVtype"><option>解説動画</option><option>実況動画</option><option>Vlog</option><option>ショート</option><option>配信</option><option>サムネイルのみ</option><option>その他制作</option></select></div>
+    <div><label>工程</label><select id="eProc"></select></div>
+    <div><label>項目</label><input id="eItem" placeholder="（未設定）"></div>
+    <div><label>メモ</label><input id="eMemo"></div>
+  </div>
+  <div class="btns" style="grid-template-columns:repeat(2,1fr)">
+    <button type="button" id="eCancel">キャンセル</button>
+    <button type="button" class="primary" id="eSave">保存</button>
+  </div>
+</dialog>
 <script>
 const PROCESSES = ["企画","台本","撮影","素材整理","素材作成(画像・映像)","編集","サムネイル","配信準備","配信","告知・投稿","その他"];
 const KEY = "video-time-log-v1";
@@ -208,7 +227,7 @@ function renderLogs(){
   const rows = [...data.logs].sort((a,b)=> b.date.localeCompare(a.date) || b.id - a.id);
   $("logBody").innerHTML = rows.length ? rows.map(l => `
     <tr><td>${l.date}</td><td>${escapeHtml(l.channel||"（未設定）")}</td><td>${escapeHtml(l.video)}</td><td><span class="tag">${l.vtype}</span></td><td>${l.process}</td><td>${escapeHtml(l.item)}</td><td>${Math.round(l.minutes)}</td>
-    <td><button class="small danger" data-del="${l.id}">削除</button></td></tr>`).join("")
+    <td><button class="small" data-edit="${l.id}">編集</button> <button class="small danger" data-del="${l.id}">削除</button></td></tr>`).join("")
     : `<tr><td colspan="8" class="note">まだ記録がありません</td></tr>`;
   const chs = [...new Set(data.logs.map(l=>l.channel).filter(x=>x && x!=="（未設定）"))];
   $("channels").innerHTML = chs.map(c=>`<option value="${escapeHtml(c)}">`).join("");
@@ -218,6 +237,7 @@ function renderLogs(){
 }
 
 $("logBody").addEventListener("click", e => {
+  if (e.target.dataset.edit) { openEdit(e.target.dataset.edit); return; }
   const id = e.target.dataset.del; if(!id) return;
   if (!confirm("この記録を削除しますか？")) return;
   data.logs = data.logs.filter(l => String(l.id) !== id); save(); render();
@@ -267,6 +287,40 @@ $("copyBtn").onclick = async () => {
   try { await navigator.clipboard.writeText(tsv); alert("コピーしました。Notionのページに貼り付けると表になります。"); }
   catch(e){ alert("コピーできませんでした。CSVの書き出しをご利用ください。"); }
 };
+
+// ===== 記録の編集 =====
+$("eProc").innerHTML = PROCESSES.map(p => `<option>${p}</option>`).join("");
+let editingId = null;
+function openEdit(id){
+  const l = data.logs.find(x => String(x.id) === String(id)); if(!l) return;
+  editingId = String(id);
+  $("eDate").value = l.date;
+  $("eMin").value = Math.round(l.minutes*10)/10;
+  $("eChannel").value = l.channel === "（未設定）" ? "" : (l.channel||"");
+  $("eVideo").value = l.video === "（無題）" ? "" : l.video;
+  $("eVtype").value = l.vtype;
+  $("eProc").value = l.process;
+  $("eItem").value = l.item === "（未設定）" ? "" : (l.item||"");
+  $("eMemo").value = l.memo || "";
+  $("editDlg").showModal();
+}
+$("eSave").onclick = () => {
+  const min = parseFloat($("eMin").value);
+  if (!min || min <= 0) { alert("所要時間（分）を入力してください"); return; }
+  const l = data.logs.find(x => String(x.id) === editingId); if(!l) return;
+  Object.assign(l, {
+    date: $("eDate").value || today(),
+    channel: $("eChannel").value.trim() || "（未設定）",
+    video: $("eVideo").value.trim() || "（無題）",
+    vtype: $("eVtype").value,
+    process: $("eProc").value,
+    item: $("eItem").value.trim() || "（未設定）",
+    minutes: min,
+    memo: $("eMemo").value.trim()
+  });
+  save(); $("editDlg").close(); render();
+};
+$("eCancel").onclick = () => $("editDlg").close();
 
 // ===== クラウド同期（Google Apps Script 経由・記録は統合・削除されません）=====
 const SYNC_KEY = "video-time-sync-v1";
